@@ -1,0 +1,13 @@
+agentId: replace-me
+dataRoot: data
+tasksFile: tasks.yaml
+controlApiBaseUrl: http://127.0.0.1:18080
+localApi:
+  bindAddress: 127.0.0.1
+  port: 47831
+ssh:
+  serverAddr: replace-me:22
+  username: replace-me
+  privateKeyPath: replace-me.key
+  remoteBindHost: 127.0.0.1
+  remoteBindPort: 49080

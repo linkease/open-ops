@@ -1,0 +1,18 @@
+name: sample_winagent_task
+description: "Package a Windows program, apply the remote task through agentctl, restart it, then follow status and logs."
+tags: ["winagent", "remote"]
+version: "1"
+
+env:
+  autoDirs: ["envs"]
+  includeSets:
+    - "../../envsets/winagent-targets/${WINAGENT_PROFILE}"
+  required: ["WINAGENT_PROFILE"]
+
+watch:
+  stateFile: "${RUNNER_HOME}/tasks/sample_winagent_task/STATE"
+
+run:
+  cmds:
+    - |-
+      bash -lc 'set -euo pipefail; export AGENT_TASK_DIR="${RUNNER_HOME}/tasks/sample_winagent_task"; exec "${RUNNER_HOME}/scripts/run_sample_winagent.sh"'

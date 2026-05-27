@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+show_roots=false
+json_output=false
+
+usage() {
+  cat <<'EOF'
+Usage: list-codex-skills [--roots] [--json]
+
+  --roots   Show discovery roots and resolved SKILL.md paths
+  --json    Emit JSON with roots and discovered skills
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --roots)
+      show_roots=true
+      ;;
+    --json)
+      json_output=true
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+roots=()
+declare -A seen_roots=()
+
+for root in \
+  "/config/.codex/skills" \
+  "${CODEX_HOME:-$HOME/.codex}/skills" \
+  "$HOME/.agents/skills"
+do
+  if [[ -d "$root" ]]; then
+    resolved_root="$(readlink -f "$root" 2>/dev/null || printf '%s' "$root")"
+    if [[ -z "${seen_roots[$resolved_root]+x}" ]]; then
+      roots+=("$root")
+      seen_roots["$resolved_root"]=1
+    fi
+  fi
+done
+
+declare -A seen=()
+
+for root in "${roots[@]}"; do
+  while IFS= read -r skill_file; do
+    resolved="$(readlink -f "$skill_file" 2>/dev/null || printf '%s' "$skill_file")"
+    seen["$resolved"]="$skill_file"
+  done < <(find -L "$root" -name 'SKILL.md' -print 2>/dev/null)
+done
+
+if $show_roots; then
+  printf 'roots:\n'
+  for root in "${roots[@]}"; do
+    printf '  %s\n' "$root"
+  done
+  printf '\n'
+fi
+
+if [[ ${#seen[@]} -eq 0 ]]; then
+  printf 'No skills found.\n' >&2
+  exit 1
+fi
+
+if $json_output; then
+  roots_payload="$(printf '%s\n' "${roots[@]}")"
+  skills_payload="$({
+    for resolved in "${!seen[@]}"; do
+      printf '%s\t%s\t%s\n' \
+        "$(basename "$(dirname "$resolved")")" \
+        "${seen[$resolved]}" \
+        "$resolved"
+    done
+  } | sort -t $'\t' -k1,1 -k3,3)"
+
+  ROOTS_PAYLOAD="$roots_payload" SKILLS_PAYLOAD="$skills_payload" python3 - <<'PY'
+import json
+import os
+
+roots = [line for line in os.environ.get("ROOTS_PAYLOAD", "").splitlines() if line]
+skills = []
+
+for line in os.environ.get("SKILLS_PAYLOAD", "").splitlines():
+    if not line:
+        continue
+    name, source, resolved = line.split("\t", 2)
+    skills.append({
+        "name": name,
+        "source": source,
+        "resolved": resolved,
+    })
+
+print(json.dumps({"roots": roots, "skills": skills}, ensure_ascii=False, indent=2))
+PY
+  exit 0
+fi
+
+for resolved in "${!seen[@]}"; do
+  if $show_roots; then
+    printf '%s -> %s\n' "${seen[$resolved]}" "$resolved"
+  else
+    printf '%s\n' "$(basename "$(dirname "$resolved")")"
+  fi
+done | sort

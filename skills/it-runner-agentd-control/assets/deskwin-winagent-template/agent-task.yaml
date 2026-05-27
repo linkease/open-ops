@@ -1,0 +1,11 @@
+taskId: sample_winagent_task
+displayName: Sample WinAgent Task
+packageName: sample-winagent.zip
+version: dev
+workDir: data/tasks/sample_winagent_task/current
+command: .\\sample.exe
+args: []
+env:
+  TASK_LOG_DIR: data/logs/sample_winagent_task
+logDir: data/logs/sample_winagent_task
+stopMode: kill
